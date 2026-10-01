@@ -1,0 +1,53 @@
+id: x-forwarded-header-reflection
+
+info:
+  name: X-Forwarded Header Reflection (X-Forwarded Başlık Yansıması)
+  author: coffin,ertansa
+  severity: medium
+  description: |
+    X-Forwarded-Host / X-Forwarded-For başlıklarına yerleştirilen değerin yanıt
+    gövdesinde veya yanıt başlıklarında yansıtılıp yansıtılmadığını tespit eder.
+    Yansıma; web cache poisoning, parola sıfırlama zehirlenmesi ve açık
+    yönlendirme saldırılarına zemin hazırlayabilir. Yanlış pozitifleri azaltmak
+    için sabit "evil.com" yerine her çalıştırmada benzersiz bir kanarya değeri
+    kullanılır.
+  reference:
+    - https://portswigger.net/web-security/host-header
+    - https://book.hacktricks.xyz/pentesting-web/proxy-waf-protections-bypass
+  classification:
+    cwe-id: CWE-644
+  metadata:
+    max-request: 1
+  tags: misconfig,header-injection,cache-poisoning,x-forwarded
+
+variables:
+  canary: "{{to_lower(rand_base(10))}}.example.com"
+
+http:
+  - raw:
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Forwarded-Host: {{canary}}
+        X-Forwarded-For: {{canary}}
+        X-Forwarded-Proto: https
+        Connection: close
+
+    matchers-condition: or
+    matchers:
+      - type: word
+        name: govdede-yansima
+        part: body
+        words:
+          - "{{canary}}"
+
+      - type: word
+        name: baslikta-yansima
+        part: header
+        words:
+          - "{{canary}}"
+
+    extractors:
+      - type: dsl
+        dsl:
+          - '"Yansitilan deger: " + canary'

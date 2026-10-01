@@ -1,0 +1,244 @@
+id: backup-files
+
+info:
+  name: Backup & Source File Exposure (Yedek ve Kaynak Dosya İfşası)
+  author: nef
+  severity: medium
+  description: |
+    Web kök dizininde erişilebilir yedek, arşiv ve kaynak/yapılandırma dosyalarını
+    tek şablonda kapsamlı biçimde tespit eder. İki bölümden oluşur:
+      1) Sıkıştırılmış/arşiv yedekleri (zip, tar.gz, rar, 7z, sql döküm vb.) —
+         ikili imza veya SQL döküm içeriğiyle doğrulanır. İngilizce, alan adı
+         tabanlı (FQDN/RDN/DN) ve Türkçe (yedek, veritabani, siteyedek…) adları kapsar.
+      2) PHP/kaynak ve yapılandırma yedekleri (config.php.bak, wp-config.php~ vb.) —
+         PHP kaynak kodu ve veritabanı tanımları içeriğiyle doğrulanır.
+    Bu dosyalar tüm site kaynak kodunu, veritabanı içeriğini ve kimlik bilgilerini
+    açığa çıkarabilir.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information
+  classification:
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+    cvss-score: 7.5
+    cwe-id: CWE-530
+  metadata:
+    max-request: 4235
+  tags: exposure,backup,disclosure,archive,config,php
+
+http:
+  # ============================================================
+  # BÖLÜM 1 — Sıkıştırılmış / arşiv / veritabanı yedekleri
+  # ============================================================
+  - method: GET
+    path:
+      - "{{BaseURL}}/{{FILENAME}}.{{EXT}}"
+
+    attack: clusterbomb
+    payloads:
+      FILENAME:
+        # Alan adı tabanlı adlar
+        - "{{FQDN}}"          # www.ornek.com
+        - "{{RDN}}"           # ornek.com
+        - "{{DN}}"            # ornek
+        - "{{SD}}"            # www
+        - "{{date_time('%Y')}}"
+        # İngilizce yaygın adlar
+        - "backup"
+        - "backups"
+        - "backup_1"
+        - "backup_2"
+        - "backup_3"
+        - "full_backup"
+        - "site"
+        - "site-backup"
+        - "website"
+        - "www"
+        - "wwwroot"
+        - "htdocs"
+        - "html"
+        - "web"
+        - "webapps"
+        - "public"
+        - "public_html"
+        - "uploads"
+        - "upload"
+        - "api"
+        - "app"
+        - "src"
+        - "data"
+        - "database"
+        - "db"
+        - "sql"
+        - "dump"
+        - "export"
+        - "release"
+        - "package"
+        - "inetpub"
+        - "bin"
+        - "temp"
+        - "tmp"
+        - "bak"
+        - "old"
+        - "ftp"
+        - "output"
+        - "admin"
+        - "conf/conf"
+        # Türkçe yaygın adlar
+        - "yedek"
+        - "yedekleme"
+        - "siteyedek"
+        - "site_yedek"
+        - "veritabani"
+        - "veritabani_yedek"
+        - "db_yedek"
+        - "dosyalar"
+      EXT:
+        - "zip"
+        - "rar"
+        - "7z"
+        - "tar"
+        - "tar.gz"
+        - "tar.bz2"
+        - "tar.xz"
+        - "tar.z"
+        - "tgz"
+        - "gz"
+        - "bz2"
+        - "xz"
+        - "lz"
+        - "z"
+        - "Z"
+        - "war"
+        - "jar"
+        - "sql"
+        - "sql.gz"
+        - "sql.zip"
+        - "sql.7z"
+        - "sql.bz2"
+        - "sql.rar"
+        - "sql.tar.gz"
+        - "sql.xz"
+        - "db"
+        - "sqlite"
+        - "sqlitedb"
+        - "bak"
+        - "backup"
+
+    stop-at-first-match: true
+    max-size: 2048
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: dsl
+        condition: or
+        dsl:
+          # Arşiv/veritabanı sihirli baytları (tam gövde hex) veya SQL döküm içeriği
+          - "contains(hex_encode(body), '504b0304')"                 # ZIP
+          - "contains(hex_encode(body), '526172211a07')"             # RAR (1.5)
+          - "contains(hex_encode(body), '526172211a070100')"         # RAR (5.0)
+          - "regex('^1f8b', hex_encode(body))"                       # GZIP
+          - "regex('^377abcaf271c', hex_encode(body))"               # 7z
+          - "regex('^425a68', hex_encode(body))"                     # BZ2
+          - "regex('^fd377a585a00', hex_encode(body))"               # XZ
+          - "regex('^7573746172', hex_encode(body))"                 # TAR (ustar)
+          - "regex('^53514c69746520666f726d6174', hex_encode(body))" # SQLite
+          - "contains(to_lower(body), 'mysql dump') || contains(body, 'CREATE TABLE') || contains(body, 'INSERT INTO') || contains(body, 'DROP TABLE')"
+
+      - type: word
+        part: header
+        words:
+          - "text/html"
+        negative: true
+
+  # ============================================================
+  # BÖLÜM 2 — PHP kaynak / yapılandırma dosyası yedekleri
+  # ============================================================
+  - method: GET
+    path:
+      - "{{BaseURL}}{{filepath}}{{bakext}}"
+
+    attack: clusterbomb
+    payloads:
+      filepath:
+        - "/wp-config.php"                 # WordPress
+        - "/config.php"
+        - "/config/config.php"
+        - "/config.inc.php"
+        - "/configuration.php"             # Joomla
+        - "/sites/default/settings.php"    # Drupal
+        - "/app/etc/env.php"               # Magento
+        - "/database.php"
+        - "/db.php"
+        - "/db_config.php"
+        - "/conn.php"
+        - "/connection.php"
+        - "/settings.php"
+        - "/local.php"
+        - "/env.php"
+        - "/.env"
+        - "/web.config"
+        - "/application.properties"
+        - "/index.php"
+        - "/login.php"
+        - "/admin.php"
+      bakext:
+        - ".bak"
+        - ".bak1"
+        - ".old"
+        - ".orig"
+        - ".save"
+        - ".swp"
+        - ".swo"
+        - ".tmp"
+        - ".temp"
+        - ".backup"
+        - ".copy"
+        - ".~"
+        - "~"
+        - ".1"
+        - ".2"
+        - ".txt"
+        - ".dist"
+        - ".sample"
+        - ".disabled"
+        - "_bak"
+        - ".inc"
+        - ".src"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: body
+        condition: or
+        words:
+          - "<?php"
+          - "<?="
+
+      - type: word
+        part: body
+        condition: or
+        words:
+          - "$_GET["
+          - "$_POST["
+          - "$_REQUEST["
+          - "$_SERVER["
+          - "DB_PASSWORD"
+          - "DB_HOST"
+          - "define('DB"
+          - "mysqli_connect"
+          - "new PDO"
+          - "$db"
+
+      - type: word
+        part: header
+        condition: or
+        words:
+          - "text/plain"
+          - "application/octet-stream"

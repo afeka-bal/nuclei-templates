@@ -1,0 +1,75 @@
+id: wordpress-user-enumeration
+
+info:
+  name: WordPress User Enumeration (WordPress Kullanıcı Sayımı)
+  author: ertansa
+  severity: medium
+  description: |
+    WordPress kullanıcı adlarının sayımına (enumeration) olanak tanıyan uç
+    noktaları tespit eder: REST API (/wp-json/wp/v2/users, /?rest_route=...) ve
+    yazar arşivi yönlendirmesi (/?author=1 → /author/<kullanici>/). Açığa çıkan
+    kullanıcı adları kaba kuvvet ve parola püskürtme (password spraying)
+    saldırılarını kolaylaştırır.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/03-Identity_Management_Testing/04-Testing_for_Account_Enumeration_and_Guessable_User_Account
+    - https://developer.wordpress.org/rest-api/reference/users/
+  classification:
+    cwe-id: CWE-200
+  metadata:
+    max-request: 3
+  tags: wordpress,wp,enum,disclosure,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/wp-json/wp/v2/users"
+      - "{{BaseURL}}/?rest_route=/wp/v2/users"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: header
+        words:
+          - "application/json"
+
+      - type: regex
+        part: body
+        regex:
+          - "\"id\"\\s*:\\s*\\d+.*\"slug\"\\s*:\\s*\"[^\"]+\""
+          - "\"slug\"\\s*:\\s*\"[^\"]+\".*\"name\"\\s*:"
+
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - "\"slug\"\\s*:\\s*\"([^\"]+)\""
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/?author=1"
+
+    redirects: false
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 301
+          - 302
+
+      - type: regex
+        part: header
+        regex:
+          - "(?i)location:\\s*\\S*/author/[^/\\s]+"
+
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - "(?i)/author/([^/\\s]+)"

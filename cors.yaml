@@ -1,0 +1,74 @@
+id: cors-misconfig
+info:
+  name: CORS Misconfiguration (CORS Yanlış Yapılandırması)
+  author: coffin,ertansa
+  severity: high
+  description: |
+    Çoklu teknikle CORS yanlış yapılandırmalarını tespit eder:
+      1) Rastgele (saldırgan kontrolündeki) bir Origin'in Access-Control-Allow-Origin
+         olarak yansıtılması + Access-Control-Allow-Credentials: true (en kritik).
+      2) "null" origin kabulü (sandbox iframe / data: URI üzerinden sömürülebilir).
+      3) Zayıf beyaz liste atlatma: pre-domain (ekendsWith) ve post-domain
+         (startsWith) eşleştirme hataları.
+      4) Protokol düşürme (https yerine http origin kabulü).
+      5) Kimlik bilgisi olmadan yansıma (daha düşük güven) ayrıca raporlanır.
+    Her çalıştırmada benzersiz rastgele origin kullanılarak yanlış pozitif azaltılır.
+  reference:
+    - https://portswigger.net/web-security/cors
+    - https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    - https://book.hacktricks.xyz/pentesting-web/cors-bypass
+  classification:
+    cwe-id: CWE-942
+  metadata:
+    max-request: 5
+  tags: cors,generic,misconfig
+
+http:
+  - raw:
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        Origin: {{cors_origin}}
+        Connection: close
+
+    payloads:
+      cors_origin:
+        - "https://{{tolower(rand_base(10))}}.com"              # rastgele harici origin
+        - "null"                                                # null origin
+        - "https://{{RDN}}.{{tolower(rand_base(8))}}.com"       # post-domain (startsWith hatası)
+        - "https://{{tolower(rand_base(8))}}{{RDN}}"            # pre-domain (endsWith hatası, noktasız)
+        - "http://{{tolower(rand_base(10))}}.com"              # protokol düşürme
+    attack: batteringram
+    stop-at-first-match: true
+
+    matchers-condition: or
+    matchers:
+      # En kritik: yansıtılan origin + credentials:true
+      - type: dsl
+        name: reflected-origin-with-credentials
+        dsl:
+          - "contains(tolower(header), 'access-control-allow-origin: ' + tolower(cors_origin))"
+          - "contains(tolower(header), 'access-control-allow-credentials: true')"
+        condition: and
+
+      # Wildcard + credentials (sunucu yanlış yapılandırması)
+      - type: dsl
+        name: wildcard-with-credentials
+        dsl:
+          - "contains(tolower(header), 'access-control-allow-origin: *')"
+          - "contains(tolower(header), 'access-control-allow-credentials: true')"
+        condition: and
+
+      # Daha düşük güven: credentials olmadan rastgele origin yansıması
+      - type: dsl
+        name: reflected-origin-no-credentials
+        dsl:
+          - "contains(tolower(header), 'access-control-allow-origin: ' + tolower(cors_origin))"
+          - "!contains(tolower(header), 'access-control-allow-credentials: true')"
+          - "cors_origin != 'null'"
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - '"Kabul edilen origin: " + cors_origin'

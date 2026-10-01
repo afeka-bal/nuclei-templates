@@ -1,0 +1,54 @@
+id: directory-listing
+
+info:
+  name: Directory Listing Enabled (Dizin Listeleme Açık)
+  author: nef
+  severity: low
+  description: |
+    Sunucuda dizin listelemenin (autoindex) etkin olduğu yolları tespit eder.
+    Açık dizin listeleme; yedek dosyalar, kaynak kod, günlükler ve yüklenen
+    içerik gibi hassas dosyaların keşfedilmesine olanak tanır.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information
+  classification:
+    cwe-id: CWE-548
+  metadata:
+    max-request: 10
+  tags: exposure,listing,misconfig,disclosure
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+      - "{{BaseURL}}/uploads/"
+      - "{{BaseURL}}/upload/"
+      - "{{BaseURL}}/files/"
+      - "{{BaseURL}}/backup/"
+      - "{{BaseURL}}/yedek/"
+      - "{{BaseURL}}/images/"
+      - "{{BaseURL}}/assets/"
+      - "{{BaseURL}}/logs/"
+      - "{{BaseURL}}/tmp/"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: regex
+        part: body
+        condition: or
+        regex:
+          - "(?i)<title>Index of /"
+          - "(?i)<h1>Index of /"
+          - "(?i)Directory listing for /"           # Python SimpleHTTPServer
+          - "\\[To Parent Directory\\]"              # IIS dizin listeleme
+
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - "(?i)Index of (/[^<\\s]*)"

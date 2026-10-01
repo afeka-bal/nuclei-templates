@@ -1,0 +1,120 @@
+id: admin-login-panel
+
+info:
+  name: Admin / Login Panel Detection (Yönetici ve Giriş Paneli Tespiti)
+  author: nef
+  severity: info
+  description: |
+    Erişilebilir yönetici ve giriş panellerini tespit eder. İngilizce (admin,
+    administrator, login, wp-admin, cpanel, dashboard…) ve Türkçe (yonetim,
+    yonetici, giris, panel, kontrol-paneli, uye-girisi…) yol adlarını birlikte
+    kapsar. Yanıtta İngilizce veya Türkçe giriş formu ifadeleri aranır. Açığa
+    çıkan paneller kaba kuvvet ve varsayılan parola saldırılarına hedef olabilir.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/README
+  classification:
+    cwe-id: CWE-284
+  metadata:
+    max-request: 52
+  tags: panel,login,admin,exposure,auth
+
+http:
+  - method: GET
+    path:
+      # İngilizce
+      - "{{BaseURL}}/admin"
+      - "{{BaseURL}}/admin/login"
+      - "{{BaseURL}}/admin/index.php"
+      - "{{BaseURL}}/administrator"
+      - "{{BaseURL}}/administrator/index.php"
+      - "{{BaseURL}}/adminpanel"
+      - "{{BaseURL}}/admin-console"
+      - "{{BaseURL}}/admin_login"
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/login.php"
+      - "{{BaseURL}}/signin"
+      - "{{BaseURL}}/sign-in"
+      - "{{BaseURL}}/logon"
+      - "{{BaseURL}}/user/login"
+      - "{{BaseURL}}/account/login"
+      - "{{BaseURL}}/auth/login"
+      - "{{BaseURL}}/wp-admin/"
+      - "{{BaseURL}}/wp-login.php"
+      - "{{BaseURL}}/cpanel"
+      - "{{BaseURL}}/whm"
+      - "{{BaseURL}}/cms"
+      - "{{BaseURL}}/dashboard"
+      - "{{BaseURL}}/manage"
+      - "{{BaseURL}}/manager"
+      - "{{BaseURL}}/backend"
+      - "{{BaseURL}}/backoffice"
+      - "{{BaseURL}}/controlpanel"
+      - "{{BaseURL}}/control-panel"
+      - "{{BaseURL}}/console"
+      - "{{BaseURL}}/portal"
+      - "{{BaseURL}}/webadmin"
+      - "{{BaseURL}}/siteadmin"
+      - "{{BaseURL}}/phpmyadmin"
+      - "{{BaseURL}}/adminer.php"
+      # Türkçe
+      - "{{BaseURL}}/yonetim"
+      - "{{BaseURL}}/yonetici"
+      - "{{BaseURL}}/yonetim-paneli"
+      - "{{BaseURL}}/yonetim/giris"
+      - "{{BaseURL}}/yonetici/login"
+      - "{{BaseURL}}/yonetici-girisi"
+      - "{{BaseURL}}/yonetim-girisi"
+      - "{{BaseURL}}/kontrol-paneli"
+      - "{{BaseURL}}/panel"
+      - "{{BaseURL}}/giris"
+      - "{{BaseURL}}/giris-yap"
+      - "{{BaseURL}}/giris.php"
+      - "{{BaseURL}}/oturum-ac"
+      - "{{BaseURL}}/kullanici-girisi"
+      - "{{BaseURL}}/kullanici/giris"
+      - "{{BaseURL}}/uye-girisi"
+      - "{{BaseURL}}/uye/giris"
+      - "{{BaseURL}}/sistem-yonetimi"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: body
+        condition: or
+        case-insensitive: true
+        words:
+          # İngilizce
+          - "Login"
+          - "Sign in"
+          - "Username"
+          - "Log in"
+          - "Admin Panel"
+          - "Control Panel"
+          - "Dashboard"
+          # Türkçe
+          - "Kullanıcı Adı"
+          - "Kullanici Adi"
+          - "Yönetici Girişi"
+          - "Yonetici Girisi"
+          - "Giriş Yap"
+          - "Oturum Aç"
+          - "Yönetim Paneli"
+          - "Kontrol Paneli"
+
+      - type: word
+        part: body
+        condition: or
+        words:
+          - "type=\"password\""
+          - "type='password'"
+          - "name=\"password\""
+          - "name=\"sifre\""
+          - "name=\"parola\""
+          - "şifre"
+          - "sifre"
+          - "parola"

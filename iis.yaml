@@ -1,0 +1,64 @@
+id: iis-shortname
+
+info:
+  name: IIS Short Name (8.3) Enumeration (IIS Kısa Ad Numaralandırması)
+  author: coffin,ertansa
+  severity: low
+  description: |
+    Eski .NET Framework kullanan IIS sunucularında "~" tilde karakteriyle 8.3
+    kısa dosya/klasör adlarının numaralandırılabildiği zafiyeti tespit eder.
+    Bu zafiyet gizli dosya ve dizinlerin adlarının kısmen açığa çıkmasına yol açar.
+  reference:
+    - https://github.com/irsdl/IIS-ShortName-Scanner
+    - https://github.com/lijiejie/IIS_shortname_Scanner
+    - https://www.exploit-db.com/exploits/19525
+  classification:
+    cwe-id: CWE-200
+  metadata:
+    max-request: 6
+  tags: iis,microsoft,enum,disclosure,misconfig
+
+variables:
+  randstring: "{{to_lower(rand_base(8))}}"
+
+http:
+  - raw:
+
+    - |
+        GET /{{randstring}}*~1*/a.aspx HTTP/1.1
+        Host: {{Hostname}}
+        Origin: {{BaseURL}}
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+    - |
+        GET /*~1*/a.aspx' HTTP/1.1
+        Host: {{Hostname}}
+        Origin: {{BaseURL}}
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+    - |
+        OPTIONS /{{randstring}}*~1*/a.aspx HTTP/1.1
+        Host: {{Hostname}}
+        Origin: {{BaseURL}}
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+    - |
+        OPTIONS /*~1*/a.aspx' HTTP/1.1
+        Host: {{Hostname}}
+        Origin: {{BaseURL}}
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+
+    - |
+       DEBUG /{{randstring}}*~1*/a.aspx HTTP/1.1
+       Host: {{Hostname}}
+       Origin: {{BaseURL}}
+       Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+
+    - |
+       DEBUG /*~1*/a.aspx HTTP/1.1
+       Host: {{Hostname}}
+       Origin: {{BaseURL}}
+       Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+
+    req-condition: true
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code_1 != 404 && status_code_2 == 404 || status_code_3 != 404 && status_code_4 == 404 || status_code_5 != 404 && status_code_6 == 404"

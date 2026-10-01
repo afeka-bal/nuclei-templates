@@ -1,0 +1,57 @@
+id: security-headers-missing
+
+info:
+  name: Missing Security Headers (Eksik Güvenlik Başlıkları)
+  author: nef
+  severity: info
+  description: |
+    Yanıtta bulunması önerilen güvenlik başlıklarının eksikliğini denetler:
+    Content-Security-Policy, Strict-Transport-Security, X-Frame-Options,
+    X-Content-Type-Options, Referrer-Policy ve Permissions-Policy. Yanlış
+    pozitif/gürültüyü azaltmak için yalnızca gerçek bir HTML sayfasında (HTTP 200 +
+    text/html) çalışır ve eksik başlıkları TEK bulguda, çıkarıcı (extractor) ile
+    listeler. Eksik başlıklar; tıklama hırsızlığı (clickjacking), MIME tür
+    karışıklığı ve XSS gibi saldırıların etkisini artırabilir. Savunma amaçlı
+    yapılandırma denetimi içindir.
+  reference:
+    - https://owasp.org/www-project-secure-headers/
+    - https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
+  classification:
+    cwe-id: CWE-693
+  metadata:
+    max-request: 1
+  tags: misconfig,headers,security-headers,best-practice
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    matchers-condition: and
+    matchers:
+      # Yalnızca gerçek HTML sayfaları (hatalı/boş yanıtlarda gürültü yapma)
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: header
+        words:
+          - "text/html"
+
+      # En az bir önemli güvenlik başlığı eksikse tek bulgu üret
+      - type: dsl
+        condition: or
+        dsl:
+          - "!contains(tolower(header), 'content-security-policy')"
+          - "!contains(tolower(header), 'strict-transport-security')"
+          - "!contains(tolower(header), 'x-frame-options')"
+          - "!contains(tolower(header), 'x-content-type-options')"
+          - "!contains(tolower(header), 'referrer-policy')"
+          - "!contains(tolower(header), 'permissions-policy')"
+
+    extractors:
+      # Hangi başlıkların eksik olduğunu tek satırda listele
+      - type: dsl
+        dsl:
+          - "(!contains(tolower(header),'content-security-policy') ? 'CSP ' : '') + (!contains(tolower(header),'strict-transport-security') ? 'HSTS ' : '') + (!contains(tolower(header),'x-frame-options') ? 'X-Frame-Options ' : '') + (!contains(tolower(header),'x-content-type-options') ? 'X-Content-Type-Options ' : '') + (!contains(tolower(header),'referrer-policy') ? 'Referrer-Policy ' : '') + (!contains(tolower(header),'permissions-policy') ? 'Permissions-Policy ' : '')"

@@ -1,0 +1,95 @@
+id: sensitive-files-exposure
+
+info:
+  name: Sensitive File Exposure (Hassas Dosya İfşası)
+  author: ertansa
+  severity: high
+  description: |
+    Web kök dizininde erişilebilir hassas dosyaları tespit eder: sürüm kontrol
+    kalıntıları (.svn, .hg), kimlik/erişim dosyaları (.htpasswd, .netrc, .npmrc,
+    .aws/credentials, özel anahtarlar), paket/derleme bildirimleri
+    (composer.json, package.json, Dockerfile, docker-compose), CI yapılandırmaları
+    (.gitlab-ci.yml, .travis.yml) ve IDE/editör dosyaları. Her dosya, türüne özgü
+    içerik imzasıyla doğrulanır (yalnızca HTTP 200 yeterli sayılmaz) — yanlış
+    pozitif düşüktür.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/
+  classification:
+    cwe-id: CWE-538
+  metadata:
+    max-request: 29
+  tags: exposure,disclosure,config,files,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.htpasswd"
+      - "{{BaseURL}}/.htaccess"
+      - "{{BaseURL}}/web.config"
+      - "{{BaseURL}}/composer.json"
+      - "{{BaseURL}}/composer.lock"
+      - "{{BaseURL}}/package.json"
+      - "{{BaseURL}}/package-lock.json"
+      - "{{BaseURL}}/.npmrc"
+      - "{{BaseURL}}/Dockerfile"
+      - "{{BaseURL}}/docker-compose.yml"
+      - "{{BaseURL}}/docker-compose.yaml"
+      - "{{BaseURL}}/config.json"
+      - "{{BaseURL}}/.svn/entries"
+      - "{{BaseURL}}/.svn/wc.db"
+      - "{{BaseURL}}/.hg/requires"
+      - "{{BaseURL}}/.bash_history"
+      - "{{BaseURL}}/.ssh/id_rsa"
+      - "{{BaseURL}}/id_rsa"
+      - "{{BaseURL}}/.aws/credentials"
+      - "{{BaseURL}}/.netrc"
+      - "{{BaseURL}}/credentials.json"
+      - "{{BaseURL}}/secrets.json"
+      - "{{BaseURL}}/.vscode/settings.json"
+      - "{{BaseURL}}/.idea/workspace.xml"
+      - "{{BaseURL}}/.gitlab-ci.yml"
+      - "{{BaseURL}}/.travis.yml"
+      - "{{BaseURL}}/.DS_Store"
+      - "{{BaseURL}}/sftp-config.json"
+      - "{{BaseURL}}/.env.example"
+
+    stop-at-first-match: true
+    max-size: 10240
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: dsl
+        condition: or
+        dsl:
+          # .htpasswd — kullanıcı:şifre-hash
+          - "regex('[^:\\s]+:(\\$(apr1|2y|1|6)\\$|\\{SHA\\}|[A-Za-z0-9./]{13}$)', body)"
+          # .htaccess
+          - "contains(body, 'RewriteEngine') || contains(body, 'AuthType') || contains(body, '<Files')"
+          # web.config
+          - "contains(to_lower(body), '<configuration') && contains(to_lower(body), 'system.web')"
+          # composer / package / node
+          - "contains(body, '\"require\"') || contains(body, '\"dependencies\"') || contains(body, '\"devDependencies\"')"
+          - "contains(body, '_authToken') || contains(body, 'registry=')"
+          # Dockerfile / compose
+          - "regex('(?m)^FROM\\s+\\S+', body) || (contains(body,'services:') && contains(body,'image:'))"
+          # VCS kalıntıları
+          - "contains(body, 'svn:') || contains(body, 'dir-prop-base')"
+          # Özel anahtarlar
+          - "contains(body, 'PRIVATE KEY-----')"
+          # AWS / netrc kimlik bilgileri
+          - "contains(to_lower(body), 'aws_access_key_id') || contains(body, 'aws_secret_access_key')"
+          - "regex('machine\\s+\\S+\\s+login\\s+\\S+\\s+password', body)"
+          # DS_Store sihirli baytları (Bud1)
+          - "contains(hex_encode(body), '0000000142756431')"
+          # CI yapılandırmaları
+          - "contains(body, 'image:') && (contains(body,'stages:') || contains(body,'script:'))"
+
+      # İçerik HTML olarak sunuluyorsa (özel 404/yanlış pozitif) ele
+      - type: word
+        part: header
+        words:
+          - "text/html"
+        negative: true

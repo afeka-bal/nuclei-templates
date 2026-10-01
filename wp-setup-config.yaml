@@ -1,0 +1,35 @@
+id: setup-wp
+
+info:
+  name: WordPress Setup Config Exposure (WordPress Kurulum Yapılandırması Açığa Çıkması)
+  author: ELSFA7110,ertansa
+  severity: critical
+  description: |
+    Erişilebilir WordPress kurulum sihirbazını (setup-config.php) tespit eder.
+    Kuruluma açık bir örnek, saldırganın kendi veritabanı bağlantısını tanımlayıp
+    site yönetimini ele geçirmesine ve uzaktan kod çalıştırmaya kadar giden bir
+    saldırıya olanak tanır.
+  reference:
+    - https://twitter.com/sec715/status/1397924997457317897
+    - https://wordpress.org/documentation/article/how-to-install-wordpress/
+  classification:
+    cwe-id: CWE-284
+  metadata:
+    max-request: 1
+  tags: rce,exposure,wordpress,wp,install,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}//wp-admin/setup-config.php?step=1"
+
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "Database Name"
+        part: body
+
+      - type: status
+        status:
+          - 200

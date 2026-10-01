@@ -1,0 +1,178 @@
+id: api-endpoints
+
+info:
+  name: Common API Endpoints & Surface Discovery (Yaygın API Uç Noktaları Keşfi)
+  author: panch0r3d,nef
+  severity: info
+  description: |
+    Yaygın REST/GraphQL API uç noktalarını, kimlik doğrulama/OAuth uçlarını,
+    Swagger/OpenAPI dokümanlarını, Spring Boot Actuator ve yönetim uçlarını,
+    /.well-known kaynaklarını ve Türkçe API uçlarını (kullanicilar, siparisler,
+    uyeler) tarar. Erişilebilir API yüzeyinin haritalanmasında kullanılır.
+  reference:
+    - https://owasp.org/API-Security/editions/2023/en/0x11-t10/
+    - https://github.com/danielmiessler/SecLists/tree/master/Discovery/Web-Content/api
+  metadata:
+    max-request: 130
+  tags: api,exposure,enum,tech,actuator,swagger
+
+http:
+  - method: GET
+    path:
+      # --- Sürüm kökleri ve klasik matris ---
+      - "{{BaseURL}}/api"
+      - "{{BaseURL}}/api/v1"
+      - "{{BaseURL}}/api/v2"
+      - "{{BaseURL}}/api/v3"
+      - "{{BaseURL}}/api/v1/users"
+      - "{{BaseURL}}/api/v2/users"
+      - "{{BaseURL}}/api/v1/orders"
+      - "{{BaseURL}}/api/v1/config"
+      - "{{BaseURL}}/api/v1/health"
+      - "{{BaseURL}}/api/v1/accounts"
+      - "{{BaseURL}}/api/v1/webhooks"
+      # --- Kimlik / oturum / token ---
+      - "{{BaseURL}}/api/v1/auth"
+      - "{{BaseURL}}/api/v1/login"
+      - "{{BaseURL}}/api/v1/session"
+      - "{{BaseURL}}/api/v1/token"
+      - "{{BaseURL}}/api/v1/oauth/token"
+      - "{{BaseURL}}/api/auth"
+      - "{{BaseURL}}/api/auth/login"
+      - "{{BaseURL}}/api/auth/logout"
+      - "{{BaseURL}}/api/login"
+      - "{{BaseURL}}/api/logout"
+      - "{{BaseURL}}/api/token"
+      - "{{BaseURL}}/api/oauth/token"
+      - "{{BaseURL}}/api/session"
+      - "{{BaseURL}}/api/sessions"
+      - "{{BaseURL}}/api/whoami"
+      - "{{BaseURL}}/api/me"
+      - "{{BaseURL}}/api/profile"
+      - "{{BaseURL}}/oauth/token"
+      - "{{BaseURL}}/oauth/authorize"
+      - "{{BaseURL}}/oauth2/token"
+      # --- Kaynaklar ---
+      - "{{BaseURL}}/api/users"
+      - "{{BaseURL}}/api/user"
+      - "{{BaseURL}}/api/user/me"
+      - "{{BaseURL}}/api/user/current"
+      - "{{BaseURL}}/api/user/admin"
+      - "{{BaseURL}}/api/users/me"
+      - "{{BaseURL}}/api/account"
+      - "{{BaseURL}}/api/accounts"
+      - "{{BaseURL}}/api/admin"
+      - "{{BaseURL}}/api/orders"
+      - "{{BaseURL}}/api/webhooks"
+      - "{{BaseURL}}/api/events"
+      - "{{BaseURL}}/api/notifications"
+      - "{{BaseURL}}/api/search/suggestions"
+      # --- Yapılandırma / durum / sağlık ---
+      - "{{BaseURL}}/api/config"
+      - "{{BaseURL}}/api/config.json"
+      - "{{BaseURL}}/api/settings"
+      - "{{BaseURL}}/api/properties"
+      - "{{BaseURL}}/api/status"
+      - "{{BaseURL}}/api/status.json"
+      - "{{BaseURL}}/api/health"
+      - "{{BaseURL}}/api/healthcheck"
+      - "{{BaseURL}}/api/ping"
+      - "{{BaseURL}}/api/info.json"
+      - "{{BaseURL}}/api/version"
+      # --- GraphQL / REST ---
+      - "{{BaseURL}}/api/graphql"
+      - "{{BaseURL}}/graphql"
+      - "{{BaseURL}}/graphql/console"
+      - "{{BaseURL}}/graphiql"
+      - "{{BaseURL}}/api/rest"
+      - "{{BaseURL}}/rest"
+      - "{{BaseURL}}/rest/api"
+      - "{{BaseURL}}/rest/api/latest"
+      # --- Swagger / OpenAPI ---
+      - "{{BaseURL}}/api/swagger"
+      - "{{BaseURL}}/api/swagger.json"
+      - "{{BaseURL}}/api/swagger.yaml"
+      - "{{BaseURL}}/api/swagger/index.html"
+      - "{{BaseURL}}/api/api-docs"
+      - "{{BaseURL}}/api/docs"
+      - "{{BaseURL}}/openapi.json"
+      - "{{BaseURL}}/swagger.json"
+      - "{{BaseURL}}/swagger/v1/swagger.json"
+      - "{{BaseURL}}/swagger-ui.html"
+      - "{{BaseURL}}/swagger-resources"
+      - "{{BaseURL}}/v2/api-docs"
+      - "{{BaseURL}}/v3/api-docs"
+      - "{{BaseURL}}/api/application.wadl"
+      # --- .well-known ---
+      - "{{BaseURL}}/.well-known/openid-configuration"
+      - "{{BaseURL}}/.well-known/oauth-authorization-server"
+      - "{{BaseURL}}/.well-known/security.txt"
+      - "{{BaseURL}}/.well-known/assetlinks.json"
+      - "{{BaseURL}}/.well-known/apple-app-site-association"
+      # --- Spring Boot Actuator / yönetim ---
+      - "{{BaseURL}}/actuator"
+      - "{{BaseURL}}/actuator/health"
+      - "{{BaseURL}}/actuator/info"
+      - "{{BaseURL}}/actuator/env"
+      - "{{BaseURL}}/actuator/beans"
+      - "{{BaseURL}}/actuator/mappings"
+      - "{{BaseURL}}/actuator/metrics"
+      - "{{BaseURL}}/actuator/loggers"
+      - "{{BaseURL}}/actuator/configprops"
+      - "{{BaseURL}}/actuator/httptrace"
+      - "{{BaseURL}}/actuator/threaddump"
+      - "{{BaseURL}}/actuator/heapdump"
+      - "{{BaseURL}}/actuator/gateway/routes"
+      - "{{BaseURL}}/actuator/scheduledtasks"
+      - "{{BaseURL}}/api/jolokia/read"
+      - "{{BaseURL}}/api/jsonws/invoke"
+      # --- Metrik / durum / hata ayıklama ---
+      - "{{BaseURL}}/metrics"
+      - "{{BaseURL}}/prometheus"
+      - "{{BaseURL}}/health"
+      - "{{BaseURL}}/healthz"
+      - "{{BaseURL}}/readyz"
+      - "{{BaseURL}}/livez"
+      - "{{BaseURL}}/status"
+      - "{{BaseURL}}/info"
+      - "{{BaseURL}}/debug"
+      - "{{BaseURL}}/debug/vars"
+      - "{{BaseURL}}/debug/pprof"
+      - "{{BaseURL}}/server-status"
+      - "{{BaseURL}}/management"
+      - "{{BaseURL}}/console"
+      # --- Türkçe API uçları ---
+      - "{{BaseURL}}/api/kullanicilar"
+      - "{{BaseURL}}/api/kullanici"
+      - "{{BaseURL}}/api/uyeler"
+      - "{{BaseURL}}/api/siparisler"
+      - "{{BaseURL}}/api/musteriler"
+      - "{{BaseURL}}/api/urunler"
+      - "{{BaseURL}}/api/ayarlar"
+      - "{{BaseURL}}/api/oturum"
+      - "{{BaseURL}}/api/giris"
+
+    stop-at-first-match: false
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 201
+          - 401
+          - 403
+          - 405
+
+      - type: dsl
+        condition: or
+        dsl:
+          - "contains(to_lower(header), 'application/json')"
+          - "contains(to_lower(header), 'application/hal+json')"
+          - "contains(to_lower(body), '\"swagger\"') || contains(to_lower(body), '\"openapi\"')"
+          - "contains(body, '__schema') || contains(to_lower(body), 'graphql')"
+          - "contains(body, '\"_links\"') || contains(body, '\"status\":\"UP\"')"
+
+    extractors:
+      - type: dsl
+        dsl:
+          - '"Uc nokta: " + status_code'

@@ -1,0 +1,56 @@
+id: env-file-exposure
+
+info:
+  name: Environment (.env) File Exposure (Ortam Değişkeni Dosyası İfşası)
+  author: nef
+  severity: high
+  description: |
+    Web kök dizininde erişilebilir .env / yapılandırma dosyalarını tespit eder.
+    Bu dosyalar genellikle veritabanı parolaları, uygulama anahtarları (APP_KEY),
+    posta/SMTP kimlik bilgileri ve üçüncü taraf API anahtarları içerir. Laravel,
+    Symfony, Node.js ve genel PHP projelerinde yaygındır.
+  reference:
+    - https://laravel.com/docs/configuration
+    - https://owasp.org/www-project-top-ten/2021/A05_2021-Security_Misconfiguration
+  classification:
+    cwe-id: CWE-200
+  metadata:
+    max-request: 8
+  tags: exposure,config,env,disclosure,misconfig,laravel
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.env"
+      - "{{BaseURL}}/.env.local"
+      - "{{BaseURL}}/.env.prod"
+      - "{{BaseURL}}/.env.production"
+      - "{{BaseURL}}/.env.dev"
+      - "{{BaseURL}}/.env.backup"
+      - "{{BaseURL}}/api/.env"
+      - "{{BaseURL}}/laravel/.env"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: regex
+        part: body
+        condition: or
+        regex:
+          # Yaygın .env anahtarları (satır başında KEY= biçimi)
+          - "(?m)^\\s*(APP_KEY|APP_ENV|APP_DEBUG|APP_SECRET)\\s*="
+          - "(?m)^\\s*(DB_(HOST|PORT|DATABASE|USERNAME|PASSWORD|CONNECTION))\\s*="
+          - "(?m)^\\s*(MAIL_(HOST|PORT|USERNAME|PASSWORD|ENCRYPTION))\\s*="
+          - "(?m)^\\s*(REDIS_(HOST|PASSWORD)|AWS_(ACCESS_KEY_ID|SECRET_ACCESS_KEY))\\s*="
+          - "(?m)^\\s*(SECRET_KEY|JWT_SECRET|API_KEY|STRIPE_(KEY|SECRET))\\s*="
+
+      # HTML olarak sunulan (yani yorumlanmış/yanlış pozitif) yanıtları ele
+      - type: word
+        part: header
+        words:
+          - "text/html"
+        negative: true

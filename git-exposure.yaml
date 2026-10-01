@@ -1,0 +1,48 @@
+id: git-exposure
+
+info:
+  name: Git Repository Exposure (.git Dizini İfşası)
+  author: nef
+  severity: medium
+  description: |
+    Web kök dizininde erişilebilir bir .git deposunu (.git/config, .git/HEAD,
+    .git/logs/HEAD) tespit eder. Açığa çıkan bir .git dizini, uzak depo adresleri,
+    dal geçmişi ve tüm kaynak kodun indirilmesine (git-dumper vb.) olanak tanıyarak
+    hassas bilgi ve kimlik bilgisi sızıntısına yol açabilir.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage
+    - https://en.internetwache.org/dont-publicly-expose-git-or-how-we-downloaded-your-websites-sourcecode-31-08-2015/
+  classification:
+    cwe-id: CWE-527
+  metadata:
+    max-request: 3
+  tags: exposure,config,git,disclosure,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/.git/config"
+      - "{{BaseURL}}/.git/HEAD"
+      - "{{BaseURL}}/.git/logs/HEAD"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: regex
+        part: body
+        condition: or
+        regex:
+          - "(?m)^\\s*\\[core\\]"                       # .git/config
+          - "\\[remote\\s+\"[^\"]+\"\\]"                # .git/config remote
+          - "(?m)^ref:\\s+refs/heads/"                  # .git/HEAD
+          - "^[0-9a-f]{40}\\s+[0-9a-f]{40}\\s"          # .git/logs/HEAD
+
+      - type: word
+        part: header
+        words:
+          - "text/html"
+        negative: true

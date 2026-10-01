@@ -1,0 +1,78 @@
+id: ssti-detection
+
+info:
+  name: Server-Side Template Injection (SSTI) Detection
+  author: ertansa
+  severity: high
+  description: |
+    Yaygın parametrelere birden fazla şablon motoru sözdizimiyle (Jinja2, Twig,
+    Freemarker, Velocity, ERB, Smarty, Thymeleaf vb.) aritmetik yük enjekte eder
+    ve sonucun (1337*1337 = 1787569) yanıt gövdesinde HESAPLANMIŞ olarak dönüp
+    dönmediğini denetler. Yalnızca ifade değerlendirildiğinde (salt yansıma değil)
+    ateşlendiği için yanlış pozitif düşüktür. İngilizce + Türkçe parametre adları.
+    -dast gerektirmez.
+  reference:
+    - https://portswigger.net/research/server-side-template-injection
+    - https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection
+  classification:
+    cwe-id: CWE-1336
+  metadata:
+    max-request: 112
+  tags: ssti,injection,rce
+
+http:
+  - method: GET
+    attack: clusterbomb
+    payloads:
+      param:
+        - "q"
+        - "s"
+        - "search"
+        - "query"
+        - "name"
+        - "id"
+        - "page"
+        - "lang"
+        - "msg"
+        - "keyword"
+        # Türkçe parametre adları
+        - "ara"
+        - "aranan"
+        - "isim"
+        - "mesaj"
+      ssti:
+        - "{{1337*1337}}"
+        - "${1337*1337}"
+        - "#{1337*1337}"
+        - "<%= 1337*1337 %>"
+        - "${{1337*1337}}"
+        - "*{1337*1337}"
+        - "@(1337*1337)"
+        - "{1337*1337}"
+    path:
+      - "{{BaseURL}}?{{param}}={{ssti}}"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      # Değerlendirilmiş sonuç gövdede yer alıyorsa SSTI doğrulanır
+      - type: word
+        part: body
+        words:
+          - "1787569"
+
+      # Ham ifadenin yansıması (değerlendirilmemiş) tek başına bulgu sayılmaz
+      - type: word
+        part: body
+        words:
+          - "1337*1337"
+        negative: true
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'SSTI dogrulandi: 1337*1337 = 1787569'"

@@ -1,0 +1,54 @@
+id: phpinfo-exposure
+
+info:
+  name: phpinfo() Page Exposure (phpinfo Bilgi Sayfası İfşası)
+  author: nef
+  severity: low
+  description: |
+    Erişilebilir phpinfo() çıktısı üreten dosyaları (info.php, phpinfo.php vb.)
+    tespit eder. Bu sayfalar PHP sürümü, yüklü modüller, mutlak sunucu yolları,
+    ortam değişkenleri ve bazen veritabanı kimlik bilgilerini açığa çıkararak
+    saldırganlara keşif avantajı sağlar.
+  reference:
+    - https://www.php.net/manual/en/function.phpinfo.php
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework
+  classification:
+    cwe-id: CWE-200
+  metadata:
+    max-request: 8
+  tags: exposure,phpinfo,php,disclosure,misconfig
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpinfo.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/php_info.php"
+      - "{{BaseURL}}/test.php"
+      - "{{BaseURL}}/i.php"
+      - "{{BaseURL}}/pi.php"
+      - "{{BaseURL}}/php.php"
+      - "{{BaseURL}}/phpinfo"
+
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+
+      - type: word
+        part: body
+        condition: and
+        words:
+          - "phpinfo()"
+          - "PHP Version"
+
+      - type: word
+        part: body
+        condition: or
+        words:
+          - "System"
+          - "Configuration"
+          - "PHP Extension"
+          - "php.ini"

@@ -1,0 +1,60 @@
+id: graphql-get
+
+info:
+  name: GraphQL Endpoint Detection (GraphQL Uç Noktası Tespiti)
+  author: panch0r3d,ertansa
+  severity: info
+  description: |
+    Yaygın GraphQL uç noktalarını ve keşif (introspection) / oyun alanı
+    (playground) arayüzlerini tespit eder. Açığa çıkan GraphQL introspection
+    hassas şema bilgisi sızdırabilir.
+  reference:
+    - https://graphql.org/learn/introspection/
+    - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  metadata:
+    max-request: 26
+  tags: graphql,api,exposure,tech
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/graphql-devtools"
+      - "{{BaseURL}}/graphql"
+      - "{{BaseURL}}/graphql/v1"
+      - "{{BaseURL}}/v1/graphql"
+      - "{{BaseURL}}/lol/graphql"
+      - "{{BaseURL}}/lol/graphql/v1"
+      - "{{BaseURL}}/api/graphql/v1"
+      - "{{BaseURL}}/portal-graphql"
+      - "{{BaseURL}}/graphiql"
+      - "{{BaseURL}}/graphql?query=query{%20__schema%20{%20types%20{%20name%20}%20}%20}"
+      - "{{BaseURL}}/graphql-playground"
+      - "{{BaseURL}}/laravel-graphql-playground"
+      - "{{BaseURL}}/query-explorer"
+      - "{{BaseURL}}/sphinx-graphiql"
+      - "{{BaseURL}}/graphql/console"
+      - "{{BaseURL}}/graphql.php"
+      - "{{BaseURL}}/express-graphql"
+      - "{{BaseURL}}/query"
+      - "{{BaseURL}}/HyperGraphQL"
+      - "{{BaseURL}}/graphql/graphql-playground"
+      - "{{BaseURL}}/graphql-playground-html"
+      - "{{BaseURL}}/graph_cms"
+      - "{{BaseURL}}/query-api"
+      - "{{BaseURL}}/api/cask/graphql-playground"
+      - "{{BaseURL}}/graphql-console"
+      - "{{BaseURL}}/query-laravel"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          # GraphQL'e özgü imzalar (gevşek "query"/"graph" eşleşmesi kaldırıldı)
+          - "(?i)\"data\"\\s*:\\s*\\{\\s*\"__schema\""
+          - "(?i)\"__schema\"|\"__type\"|\"types\"\\s*:\\s*\\["
+          - "(?i)\"errors\"\\s*:\\s*\\[.*(must provide query string|operation not found|graphql|syntax error|cannot query field)"
+          - "(?i)(graphql-playground|graphiql|apollo-server|graphql-ws)"
+          - "(?i)Must provide (query string|operation name|an operation)"

@@ -1,0 +1,61 @@
+id: application-error-disclosure
+
+info:
+  name: Application Error / Stack Trace Disclosure (Uygulama Hatası ve Yığın İzi İfşası)
+  author: nef
+  severity: low
+  description: |
+    Yanıt gövdesinde açığa çıkan uygulama hata mesajlarını ve yığın izlerini
+    (stack trace) tespit eder. PHP, ASP.NET, Java, Python, Ruby ve Node.js hata
+    imzalarını; ayrıca Türkçe hata metinlerini kapsar. Bu çıktılar mutlak dosya
+    yollarını, kaynak kod satırlarını ve teknoloji sürümlerini sızdırarak keşfi
+    kolaylaştırır.
+  reference:
+    - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/08-Testing_for_Error_Handling/01-Testing_For_Improper_Error_Handling
+  classification:
+    cwe-id: CWE-209
+  metadata:
+    max-request: 1
+  tags: exposure,error,stacktrace,disclosure,debug
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    matchers:
+      - type: regex
+        part: body
+        condition: or
+        regex:
+          # PHP
+          - "(?i)(Fatal error|Parse error|Warning|Notice)\\s*:.*(on line|in\\s+/|in\\s+[A-Za-z]:\\\\)"
+          - "(?i)Uncaught (Error|Exception|TypeError)"
+          - "(?i)Stack trace:\\s*#0"
+          - "(?i)Call Stack:"
+          # ASP.NET / .NET
+          - "(?i)Server Error in '.*' Application"
+          - "(?i)(System\\.[A-Za-z.]+Exception|Microsoft \\.NET Framework)"
+          - "(?i)Runtime Error"
+          # Java
+          - "(?i)(java\\.lang\\.[A-Za-z.]+Exception|at [a-z0-9_.]+\\([A-Za-z0-9_]+\\.java:\\d+\\))"
+          - "(?i)javax\\.servlet"
+          # Python
+          - "(?i)Traceback \\(most recent call last\\)"
+          - "(?i)File \".*\\.py\", line \\d+"
+          # Ruby / Node.js
+          - "(?i)(app/controllers/|/gems/)"
+          - "(?i)at Object\\.<anonymous> \\(.*:\\d+:\\d+\\)"
+          # Türkçe hata metinleri
+          - "(?i)(Ölümcül hata|Uyarı|Beklenmeyen bir hata|Sunucu Hatası|Bir hata oluştu|Hata ayrıntıları|satırında hata)"
+          - "(?i)(Veritabanı bağlantı hatası|Sorgu çalıştırılamadı|Bağlantı kurulamadı|Sayfa görüntülenemiyor)"
+
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          # Sızdırılan mutlak dosya yolunu çıkar (Unix / Windows)
+          - "(?i)in\\s+(/[^\\s:<>\"]+\\.php)"
+          - "([A-Za-z]:\\\\[^\\s:<>\"]+\\.(php|aspx?|cs|java|py))"
+          - "File \"([^\"]+\\.py)\""
