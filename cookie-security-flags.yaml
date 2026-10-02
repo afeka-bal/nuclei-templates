@@ -1,0 +1,51 @@
+id: cookie-security-flags
+
+info:
+  name: Insecure Cookie Flags (Güvensiz Çerez Bayrakları)
+  author: ertansa
+  severity: low
+  description: |
+    Yanıttaki Set-Cookie başlıklarında oturum güvenliği bayraklarının (HttpOnly,
+    Secure, SameSite) eksikliğini denetler. Yalnızca gerçekten bir Set-Cookie
+    gönderildiğinde çalışır; çerez yoksa bulgu üretmez (gürültüsüz). Eksik HttpOnly
+    çerez hırsızlığını (XSS ile), eksik SameSite CSRF'yi, eksik Secure ise çerezin
+    şifresiz kanaldan sızmasını kolaylaştırır. Eksik bayraklar tek bulguda çıkarıcı
+    (extractor) ile listelenir. -dast gerektirmez.
+    OWASP Top 10: A05:2021 - Security Misconfiguration / A07 - Auth Failures.
+  reference:
+    - https://owasp.org/www-community/controls/SecureCookieAttribute
+    - https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+    - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
+  classification:
+    cwe-id: CWE-614
+  metadata:
+    max-request: 1
+  tags: misconfig,cookie,session,owasp,owasp-a05
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    matchers-condition: and
+    matchers:
+      # Yanıtta gerçekten bir çerez atanıyor olmalı
+      - type: word
+        part: header
+        words:
+          - "Set-Cookie:"
+          - "set-cookie:"
+        condition: or
+
+      # En az bir güvenlik bayrağı eksik
+      - type: dsl
+        condition: or
+        dsl:
+          - "!contains(tolower(header), 'httponly')"
+          - "!contains(tolower(header), 'secure')"
+          - "!contains(tolower(header), 'samesite')"
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Eksik cerez bayraklari: ' + (!contains(tolower(header),'httponly') ? 'HttpOnly ' : '') + (!contains(tolower(header),'secure') ? 'Secure ' : '') + (!contains(tolower(header),'samesite') ? 'SameSite ' : '')"

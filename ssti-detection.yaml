@@ -1,24 +1,29 @@
 id: ssti-detection
 
 info:
-  name: Server-Side Template Injection (SSTI) Detection
+  name: Server-Side Template Injection (SSTI) Detection — Engine Fingerprint
   author: ertansa
   severity: high
   description: |
-    Yaygın parametrelere birden fazla şablon motoru sözdizimiyle (Jinja2, Twig,
-    Freemarker, Velocity, ERB, Smarty, Thymeleaf vb.) aritmetik yük enjekte eder
-    ve sonucun (1337*1337 = 1787569) yanıt gövdesinde HESAPLANMIŞ olarak dönüp
-    dönmediğini denetler. Yalnızca ifade değerlendirildiğinde (salt yansıma değil)
-    ateşlendiği için yanlış pozitif düşüktür. İngilizce + Türkçe parametre adları.
-    -dast gerektirmez.
+    Sunucu Taraflı Şablon Enjeksiyonunu (SSTI) tespit eder VE şablon motorunu
+    parmak izinden tanır. Her motor ailesine AYRI bir aritmetik çarpım atanır
+    (ör. Jinja2/Twig `{{1337*1337}}`=1787569, Freemarker/Mako `${2001*2001}`=4004001,
+    Thymeleaf/JSF `#{...}`, ERB/EJS `<%= %>`, Razor `@(...)`, Velocity `#set`...).
+    Böylece yanıttaki HESAPLANMIŞ benzersiz sonuç hem SSTI'yi doğrular hem de hangi
+    motorun çalıştığını gösterir. Sonuç yalnızca ifade GERÇEKTEN değerlendirildiğinde
+    (ham ifade yansıması değil) göründüğünden yanlış pozitif çok düşüktür. İngilizce +
+    Türkçe parametre adları. -dast gerektirmez.
   reference:
     - https://portswigger.net/research/server-side-template-injection
     - https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection
+    - https://github.com/payloadbox/ssti-payloads
   classification:
     cwe-id: CWE-1336
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+    cvss-score: 9.8
   metadata:
-    max-request: 112
-  tags: ssti,injection,rce
+    max-request: 266
+  tags: ssti,injection,rce,owasp,owasp-a03
 
 http:
   - method: GET
@@ -35,44 +40,97 @@ http:
         - "lang"
         - "msg"
         - "keyword"
+        - "title"
+        - "view"
+        - "template"
+        - "data"
         # Türkçe parametre adları
         - "ara"
         - "aranan"
         - "isim"
         - "mesaj"
+        - "baslik"
       ssti:
+        # G1 — {{ }}  → 1787569  (Jinja2, Twig, Nunjucks, Smarty, Jinjava, Liquid)
         - "{{1337*1337}}"
-        - "${1337*1337}"
-        - "#{1337*1337}"
-        - "<%= 1337*1337 %>"
-        - "${{1337*1337}}"
-        - "*{1337*1337}"
-        - "@(1337*1337)"
-        - "{1337*1337}"
+        - "{{1337*1337}}\\"
+        # G2 — ${ }  → 4004001  (Freemarker, Mako, JSP EL, Thymeleaf ${})
+        - "${2001*2001}"
+        # G3 — #{ }  → 9728161  (Ruby #{}, Thymeleaf/JSF #{}, Velocity #{})
+        - "#{3119*3119}"
+        # G4 — <%= %>  → 25030009  (ERB, EJS, ASP/<% %>)
+        - "<%= 5003*5003 %>"
+        # G5 — ${{ }}  → 36084049  (Angular benzeri, iç-içe Nunjucks/Twig)
+        - "${{6007*6007}}"
+        # G6 — @( )  → 49182169  (Razor / ASP.NET)
+        - "@(7013*7013)"
+        # G7 — *{ }  → 64144081  (Thymeleaf seçim ifadesi)
+        - "*{8009*8009}"
+        # G8 — #set  → 81018001  (Velocity deyim + yazdırma)
+        - "#set($x=9001*9001)${x}"
     path:
       - "{{BaseURL}}?{{param}}={{ssti}}"
 
     stop-at-first-match: true
-    matchers-condition: and
+    matchers-condition: or
     matchers:
-      - type: status
-        status:
-          - 200
+      - type: dsl
+        name: jinja2-twig-nunjucks-smarty
+        dsl:
+          - "contains(body, '1787569')"
+          - "!contains(body, '1337*1337')"
+        condition: and
 
-      # Değerlendirilmiş sonuç gövdede yer alıyorsa SSTI doğrulanır
-      - type: word
-        part: body
-        words:
-          - "1787569"
+      - type: dsl
+        name: freemarker-mako-jsp-el
+        dsl:
+          - "contains(body, '4004001')"
+          - "!contains(body, '2001*2001')"
+        condition: and
 
-      # Ham ifadenin yansıması (değerlendirilmemiş) tek başına bulgu sayılmaz
-      - type: word
-        part: body
-        words:
-          - "1337*1337"
-        negative: true
+      - type: dsl
+        name: ruby-thymeleaf-jsf-hash
+        dsl:
+          - "contains(body, '9728161')"
+          - "!contains(body, '3119*3119')"
+        condition: and
+
+      - type: dsl
+        name: erb-ejs-asp
+        dsl:
+          - "contains(body, '25030009')"
+          - "!contains(body, '5003*5003')"
+        condition: and
+
+      - type: dsl
+        name: angular-nested-interpolation
+        dsl:
+          - "contains(body, '36084049')"
+          - "!contains(body, '6007*6007')"
+        condition: and
+
+      - type: dsl
+        name: razor-aspnet
+        dsl:
+          - "contains(body, '49182169')"
+          - "!contains(body, '7013*7013')"
+        condition: and
+
+      - type: dsl
+        name: thymeleaf-selection
+        dsl:
+          - "contains(body, '64144081')"
+          - "!contains(body, '8009*8009')"
+        condition: and
+
+      - type: dsl
+        name: velocity
+        dsl:
+          - "contains(body, '81018001')"
+          - "!contains(body, '9001*9001')"
+        condition: and
 
     extractors:
       - type: dsl
         dsl:
-          - "'SSTI dogrulandi: 1337*1337 = 1787569'"
+          - "'SSTI dogrulandi — motor: ' + (contains(body,'1787569') ? 'Jinja2/Twig/Nunjucks/Smarty ({{1337*1337}}=1787569) ' : '') + (contains(body,'4004001') ? 'Freemarker/Mako/JSP-EL (${2001*2001}=4004001) ' : '') + (contains(body,'9728161') ? 'Ruby/Thymeleaf/JSF (#{3119*3119}=9728161) ' : '') + (contains(body,'25030009') ? 'ERB/EJS/ASP (<%= 5003*5003 %>=25030009) ' : '') + (contains(body,'36084049') ? 'Angular/nested (${{6007*6007}}=36084049) ' : '') + (contains(body,'49182169') ? 'Razor/ASP.NET (@(7013*7013)=49182169) ' : '') + (contains(body,'64144081') ? 'Thymeleaf-selection (*{8009*8009}=64144081) ' : '') + (contains(body,'81018001') ? 'Velocity (#set 9001*9001=81018001) ' : '')"

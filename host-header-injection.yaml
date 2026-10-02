@@ -1,0 +1,65 @@
+id: host-header-injection
+
+info:
+  name: Host Header Injection / Reflection (Host Başlığı Enjeksiyonu)
+  author: ertansa
+  severity: medium
+  description: |
+    Host, X-Forwarded-Host, X-Forwarded-Server, X-Host ve Forwarded başlıklarına
+    benzersiz bir kanarya alan adı enjekte eder ve bu değerin yanıtın Location
+    başlığında (açık yönlendirme / parola sıfırlama zehirlenmesi) veya gövdedeki
+    mutlak bağlantılarda (http(s)://KANARYA) yansıyıp yansımadığını denetler.
+    Kanarya her çalıştırmada rastgele olduğundan yanlış pozitif düşüktür. Bu zafiyet
+    parola sıfırlama zehirlenmesi, web önbellek zehirlenmesi ve açık yönlendirmeye
+    yol açabilir. -dast gerektirmez. OWASP Top 10: A01/A03:2021.
+  reference:
+    - https://portswigger.net/web-security/host-header
+    - https://portswigger.net/web-security/host-header/exploiting
+    - https://book.hacktricks.xyz/pentesting-web/abusing-hop-by-hop-headers
+  classification:
+    cwe-id: CWE-644
+  metadata:
+    max-request: 2
+  tags: host-header,injection,ssrf,redirect,owasp,owasp-a01
+
+variables:
+  canary: "{{rand_base(10)}}.example-poison.tr"
+
+http:
+  - raw:
+      # 1) Hop-by-hop / proxy başlıklarıyla Host yansıması
+      - |
+        GET / HTTP/1.1
+        Host: {{Hostname}}
+        X-Forwarded-Host: {{canary}}
+        X-Forwarded-Server: {{canary}}
+        X-Host: {{canary}}
+        Forwarded: host={{canary}}
+        Connection: close
+      # 2) Doğrudan Host başlığı geçersiz kılma
+      - |
+        GET / HTTP/1.1
+        Host: {{canary}}
+        Connection: close
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      # Kanarya Location başlığında → yönlendirme/parola-sıfırlama zehirlenmesi
+      - type: dsl
+        name: reflected-in-location
+        dsl:
+          - "contains(tolower(header), 'location:')"
+          - "contains(tolower(header), tolower(canary))"
+        condition: and
+
+      # Kanarya gövdedeki mutlak bağlantıda (http(s)://KANARYA)
+      - type: dsl
+        name: reflected-in-body-url
+        dsl:
+          - "contains(tolower(body), tolower('//' + canary))"
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Yansiyan zehirli host: ' + canary"
