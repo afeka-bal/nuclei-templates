@@ -56,8 +56,8 @@ http:
         - "{{1337*1337}}\\"
         # G2 — ${ }  → 4004001  (Freemarker, Mako, JSP EL, Thymeleaf ${})
         - "${2001*2001}"
-        # G3 — #{ }  → 9728161  (Ruby #{}, Thymeleaf/JSF #{}, Velocity #{})
-        - "#{3119*3119}"
+        # G3 — #{ }  → 9728161  (Ruby #{}, Thymeleaf/JSF #{}, Velocity #{}) — # => %23 (fragment olmasın)
+        - "%23{3119*3119}"
         # G4 — <%= %>  → 25030009  (ERB, EJS, ASP/<% %>)
         - "<%= 5003*5003 %>"
         # G5 — ${{ }}  → 36084049  (Angular benzeri, iç-içe Nunjucks/Twig)
@@ -66,8 +66,8 @@ http:
         - "@(7013*7013)"
         # G7 — *{ }  → 64144081  (Thymeleaf seçim ifadesi)
         - "*{8009*8009}"
-        # G8 — #set  → 81018001  (Velocity deyim + yazdırma)
-        - "#set($x=9001*9001)${x}"
+        # G8 — #set  → 81018001  (Velocity deyim + yazdırma) — # => %23
+        - "%23set($x=9001*9001)${x}"
     path:
       - "{{BaseURL}}?{{param}}={{ssti}}"
 

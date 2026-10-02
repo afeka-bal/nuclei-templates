@@ -1,23 +1,28 @@
 id: xss-reflected
 
 info:
-  name: Reflected XSS Detection (Yansıyan XSS Tespiti)
+  name: Reflected XSS Detection — Multi-Context (Yansıyan XSS, Çoklu Bağlam)
   author: ertansa
   severity: high
   description: |
-    Yaygın sorgu parametrelerine benzersiz bir XSS kanaryası enjekte eder ve
-    yükün yanıt gövdesinde HTML olarak KODLANMADAN (ham `<`, `>`, tırnak) yansıyıp
-    yansımadığını denetler. Yalnızca gerçek (kodlanmamış) yansımada ateşlendiği
-    için yanlış pozitif düşüktür. İngilizce ve Türkçe parametre adlarını kapsar.
-    -dast gerektirmez.
+    Yaygın sorgu parametrelerine benzersiz bir XSS kanaryası enjekte eder ve yükün
+    yanıt gövdesinde HTML olarak KODLANMADAN (ham `<`, `>`, tırnak, olay-işleyici)
+    yansıyıp yansımadığını denetler. Birden çok enjeksiyon bağlamını kapsar:
+    HTML gövde (svg/img/body), öznitelik kırma (onmouseover), script/JS string kırma
+    ve `javascript:` URI. Yalnızca gerçek (kodlanmamış) yansımada ateşlendiği için
+    yanlış pozitif düşüktür. İngilizce + Türkçe parametre adları. -dast gerektirmez.
+    OWASP Top 10: A03:2021 - Injection.
   reference:
     - https://owasp.org/www-community/attacks/xss/
     - https://portswigger.net/web-security/cross-site-scripting/reflected
+    - https://github.com/payloadbox/xss-payload-list
   classification:
     cwe-id: CWE-79
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N
+    cvss-score: 6.1
   metadata:
-    max-request: 51
-  tags: xss,injection,reflected
+    max-request: 152
+  tags: xss,injection,reflected,owasp,owasp-a03
 
 variables:
   rnd: "{{rand_base(6)}}"
@@ -38,17 +43,27 @@ http:
         - "page"
         - "redirect"
         - "return"
+        - "url"
         - "msg"
         - "error"
+        - "callback"
         # Türkçe parametre adları
         - "ara"
         - "aranan"
         - "anahtar"
         - "mesaj"
       xss:
+        # HTML gövde bağlamı
         - '"><svg/onload=alert({{rnd}})>'
         - "'><svg/onload=alert({{rnd}})>"
+        - '"><img src=x onerror=alert({{rnd}})>'
+        - '"><body onload=alert({{rnd}})>'
         - '</script><svg/onload=alert({{rnd}})>'
+        # Öznitelik kırma bağlamı
+        - '" onmouseover=alert({{rnd}}) x="'
+        # JS string kırma bağlamı
+        - "';alert({{rnd}})//"
+        - '";alert({{rnd}})//'
     path:
       - "{{BaseURL}}?{{param}}={{xss}}"
 
@@ -64,12 +79,20 @@ http:
         words:
           - "text/html"
 
-      # Yük HTML olarak kodlanmadan yansıdıysa (gerçek XSS göstergesi)
+      # Yüklerden biri HTML olarak KODLANMADAN yansıdıysa (gerçek XSS göstergesi).
+      # Öznitelik/JS bağlamı markerları, exploit için kaçırılmamış OLMASI GEREKEN tırnağı
+      # içerir; HTML-encode edilince eşleşmez → yanlış pozitif olmaz.
       - type: dsl
+        condition: or
         dsl:
           - "contains(body, '<svg/onload=alert(' + rnd + ')>')"
+          - "contains(body, '<img src=x onerror=alert(' + rnd + ')>')"
+          - "contains(body, '<body onload=alert(' + rnd + ')>')"
+          - 'contains(body, ''" onmouseover=alert('' + rnd + '')'')'
+          - 'contains(body, "'';alert(" + rnd + ")//")'
+          - 'contains(body, ''";alert('' + rnd + '')//'')'
 
     extractors:
       - type: dsl
         dsl:
-          - "'Yansiyan yuk: <svg/onload=alert(' + rnd + ')>'"
+          - "'Yansiyan XSS kanaryasi (kodlanmamis): alert(' + rnd + ')'"

